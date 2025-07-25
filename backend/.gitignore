@@ -1,0 +1,46 @@
+# =========================
+# 🌐 General Node + Express
+# =========================
+node_modules/
+.env
+.env.local
+dist/
+uploads/
+coverage/
+logs/
+*.log
+
+# =========================
+# 💻 Frontend: pdf-ai-frontend (Vite + React)
+# =========================
+pdf-ai-frontend/node_modules/
+pdf-ai-frontend/.env
+pdf-ai-frontend/.env.local
+pdf-ai-frontend/dist/
+pdf-ai-frontend/.vite/
+pdf-ai-frontend/coverage/
+pdf-ai-frontend/.DS_Store
+
+# =========================
+# 💡 Common Dev Files
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🔒 Lock Files (Optional)
+# =========================
+yarn.lock
+pdf-ai-frontend/yarn.lock
+pnpm-lock.yaml
+pdf-ai-frontend/pnpm-lock.yaml
+
+# =========================
+# 🧪 Testing (Optional)
+# =========================
+jest.config.js
