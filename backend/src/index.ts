@@ -3,31 +3,29 @@ import multer from "multer";
 import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
-// import { initAgent, askAgent } from "./agent"; // <-- STEP 1: Comment this out
+import { initAgent, askAgent } from "./agent"; 
 
 dotenv.config();
 
 const app = express();
 const port = 3000;
 
-app.use(cors());
+
+app.use(cors()); 
 app.use(express.json());
 
-const _dirname1 = path.resolve();
-app.use(express.static(path.join(_dirname1, "../../pdf-ai-frontend/dist")));
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(_dirname1, "../../pdf-ai-frontend/dist/index.html"));
-});
+
+
 
 const upload = multer({ dest: "uploads/" });
+
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-// STEP 2: Comment out the routes that use the agent
-/*
+
 app.post("/upload", upload.single("pdf"), async (req: MulterRequest, res: Response) => {
   try {
     const filePath = req.file?.path;
@@ -41,6 +39,7 @@ app.post("/upload", upload.single("pdf"), async (req: MulterRequest, res: Respon
   }
 });
 
+
 app.post("/ask", async (req: Request, res: Response) => {
   try {
     const { question } = req.body;
@@ -53,7 +52,15 @@ app.post("/ask", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to get answer" });
   }
 });
-*/
+
+const _dirname1 = path.resolve();
+// Serving frontend
+app.use(express.static(path.join(_dirname1, "../../pdf-ai-frontend/dist")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(_dirname1, "../../pdf-ai-frontend/dist/index.html"));
+});
+
 
 app.listen(port, () => {
   console.log(`✅ Server is running at http://localhost:${port}`);
