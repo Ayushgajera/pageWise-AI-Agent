@@ -21,7 +21,7 @@ interface MulterRequest extends Request {
 }
 
 // 2. API Routes
-app.post("/api/upload", upload.single("pdf"), async (req: MulterRequest, res: Response) => {
+app.post("/upload", upload.single("pdf"), async (req: MulterRequest, res: Response) => {
   try {
     const filePath = req.file?.path;
     if (!filePath) return res.status(400).json({ error: "No file uploaded" });
@@ -33,7 +33,7 @@ app.post("/api/upload", upload.single("pdf"), async (req: MulterRequest, res: Re
   }
 });
 
-app.post("/api/ask", async (req: Request, res: Response) => {
+app.post("/ask", async (req: Request, res: Response) => {
   try {
     const { question } = req.body;
     if (!question) return res.status(400).json({ error: "Question is required" });
