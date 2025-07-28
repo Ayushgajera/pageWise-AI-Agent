@@ -18,9 +18,9 @@ app.use(express.json());
 const _dirname1 = path.resolve();
 app.use(express.static(path.join(_dirname1, "../pdf-ai-frontend/dist"))); // or build
 
-app.get("/*", (req, res) => {
-  res.sendFile(path.join(_dirname1, "../pdf-ai-frontend/dist/index.html"));
-});
+// app.get("/*", (req, res) => {
+//   res.sendFile(path.join(_dirname1, "../pdf-ai-frontend/dist/index.html"));
+// });
 
 
 const upload = multer({ dest: "uploads/" });
