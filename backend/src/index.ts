@@ -20,7 +20,7 @@ interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-// 2. API Routes (MUST BE DEFINED BEFORE FRONTEND ROUTES)
+// 2. API Routes
 app.post("/api/upload", upload.single("pdf"), async (req: MulterRequest, res: Response) => {
   try {
     const filePath = req.file?.path;
@@ -45,15 +45,17 @@ app.post("/api/ask", async (req: Request, res: Response) => {
   }
 });
 
-// 3. Frontend Routes (MUST BE DEFINED LAST)
+// 3. Frontend Static Files
 const frontendDistPath = path.join(__dirname, "../../pdf-ai-frontend/dist");
 app.use(express.static(frontendDistPath));
 
-// app.get("*", (req: Request, res: Response) => {
-//   res.sendFile(path.join(frontendDistPath, "index.html"));
-// });
+// 4. THE NEW CATCH-ALL: This middleware sends the index.html for any unhandled request.
+// This replaces app.get("*", ...) and MUST BE a THE END, right before app.listen.
+app.use((req: Request, res: Response) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
 
-// 4. Start Server
+// 5. Start Server
 app.listen(port, () => {
   console.log(`✅ Server is running at http://localhost:${port}`);
 });
