@@ -49,9 +49,9 @@ app.post("/api/ask", async (req: Request, res: Response) => {
 const frontendDistPath = path.join(__dirname, "../../pdf-ai-frontend/dist");
 app.use(express.static(frontendDistPath));
 
-app.get("*", (req: Request, res: Response) => {
-  res.sendFile(path.join(frontendDistPath, "index.html"));
-});
+// app.get("*", (req: Request, res: Response) => {
+//   res.sendFile(path.join(frontendDistPath, "index.html"));
+// });
 
 // 4. Start Server
 app.listen(port, () => {
