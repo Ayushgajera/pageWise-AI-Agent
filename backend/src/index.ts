@@ -4,6 +4,13 @@ import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
 import { initAgent, askAgent } from "./agent";
+import { v2 as cloudinary } from "cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 dotenv.config();
 
@@ -23,15 +30,39 @@ interface MulterRequest extends Request {
 // 2. API Routes
 app.post("/upload", upload.single("pdf"), async (req: MulterRequest, res: Response) => {
   try {
-    const filePath = req.file?.path;
-    if (!filePath) return res.status(400).json({ error: "No file uploaded" });
-    await initAgent(filePath);
-    res.json({ message: "PDF uploaded and agent initialized" });
+    const fileBuffer = req.file?.buffer;
+    const fileName = req.file?.originalname;
+
+    if (!fileBuffer || !fileName) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Convert buffer to base64 string
+    const base64String = fileBuffer.toString("base64");
+    const dataUri = `data:application/pdf;base64,${base64String}`;
+
+    // Upload to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload(dataUri, {
+      folder: "pagewise-pdfs", // optional folder in Cloudinary
+      resource_type: "raw",    // use "raw" for non-image files like PDFs
+      public_id: fileName.replace(/\.pdf$/, ""),
+    });
+
+    // Send Cloudinary URL to initAgent
+    await initAgent(uploadResponse.secure_url);
+
+    res.json({
+      message: "PDF uploaded to Cloudinary and agent initialized",
+      url: uploadResponse.secure_url,
+    });
+
   } catch (err) {
-    console.error("Upload Error:", err);
-    res.status(500).json({ error: "Failed to process PDF" });
+    console.error("Cloudinary Upload Error:", err);
+    res.status(500).json({ error: "Failed to upload PDF to Cloudinary" });
   }
 });
+
+
 
 app.post("/ask", async (req: Request, res: Response) => {
   try {
