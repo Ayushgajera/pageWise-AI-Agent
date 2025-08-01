@@ -102,7 +102,7 @@ export default function ChatPage() {
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
-
+const API_URL = import.meta.env.VITE_API_URL;
 
   const chatContainerRef = useChatScroll(chatHistory);
   const fileInputRef = useRef(null);
@@ -124,7 +124,7 @@ export default function ChatPage() {
     setUiState("processing");
 
     try {
-      const res = await axios.post("http://localhost:3000/upload", formData, {
+      const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
@@ -156,7 +156,7 @@ export default function ChatPage() {
     setSuggestedQuestions([]);
 
     try {
-      const res = await axios.post("http://localhost:3000/ask", { 
+      const res = await axios.post(`${API_URL}/ask`, { 
         question: currentQuestion, 
         docId 
       });
@@ -199,7 +199,7 @@ export default function ChatPage() {
     setEditingText('');
 
     try {
-        const res = await axios.post("http://localhost:3000/ask", {
+        const res = await axios.post(`${API_URL}/ask`, {
             question: editingText,
             docId
         });
