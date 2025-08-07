@@ -94,12 +94,8 @@ const TypingIndicator = React.memo(() => (
     </motion.div>
 ));
 
-const SuggestedQuestions = React.memo(({ questions, onQuestionClick }) => (
-    <motion.div 
-        initial={{ opacity: 0, y: 10 }} 
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-start gap-2 pt-4"
-    >
+const SuggestedQuestions = ({ questions, onQuestionClick }) => (
+    <div className="flex flex-col items-start gap-2 pt-4">
         <p className="text-sm text-slate-400 font-medium">Suggested for you:</p>
         <div className="flex flex-wrap gap-2 justify-start">
             {questions.map((q, i) => (
@@ -109,14 +105,14 @@ const SuggestedQuestions = React.memo(({ questions, onQuestionClick }) => (
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
                     onClick={() => onQuestionClick(q)}
-                    className="bg-slate-700 text-slate-200 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="bg-slate-700 text-slate-200 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-600 transition-colors"
                 >
                     {q}
                 </motion.button>
             ))}
         </div>
-    </motion.div>
-));
+    </div>
+);
 
 
 // --- Main Page Component ---
@@ -170,7 +166,7 @@ export default function ChatPage() {
     setUiState("processing");
 
     try {
-      const res = await axios.post(`http://localhost:3000/upload`, formData, {
+      const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000, // 60 second timeout
       });
@@ -214,7 +210,7 @@ export default function ChatPage() {
     setSuggestedQuestions([]);
 
     try {
-      const res = await axios.post(`http://localhost:3000/ask`, { 
+      const res = await axios.post(`${API_URL}/ask`, { 
         question: currentQuestion, 
         docId 
       }, {
@@ -276,7 +272,7 @@ export default function ChatPage() {
     setEditingText('');
 
     try {
-        const res = await axios.post(`http://localhost:3000/ask`, {
+        const res = await axios.post(`${API_URL}/ask`, {
             question: editingText,
             docId
         });
