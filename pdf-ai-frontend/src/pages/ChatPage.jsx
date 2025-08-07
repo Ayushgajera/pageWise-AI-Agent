@@ -4,7 +4,6 @@ import ReactMarkdown from 'react-markdown';
 import { FiUploadCloud, FiSend, FiLoader, FiUser, FiCpu, FiFileText, FiTrash2, FiAlertTriangle, FiEdit2 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Default questions defined on the frontend ---
 const DEFAULT_SUGGESTED_QUESTIONS = [
   "What is the main summary of this document?",
   "List the key takeaways in bullet points.",
@@ -12,12 +11,12 @@ const DEFAULT_SUGGESTED_QUESTIONS = [
   "Who is the intended audience?",
 ];
 
-// --- Custom Hooks ---
+
 const useChatScroll = (dep) => {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current) {
-      // Smooth scroll to bottom with better performance
+    
       ref.current.scrollTo({
         top: ref.current.scrollHeight,
         behavior: 'smooth'
@@ -27,7 +26,7 @@ const useChatScroll = (dep) => {
   return ref;
 };
 
-// Debounce hook for better performance
+
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   
@@ -45,7 +44,7 @@ const useDebounce = (value, delay) => {
 };
 
 
-// --- UI Components ---
+
 
 const ChatMessage = React.memo(({ message }) => {
   const { sender, text } = message;
@@ -115,7 +114,7 @@ const SuggestedQuestions = ({ questions, onQuestionClick }) => (
 );
 
 
-// --- Main Page Component ---
+
 
 export default function ChatPage() {
   const [uiState, setUiState] = useState("upload");
@@ -130,7 +129,7 @@ export default function ChatPage() {
   const [editingText, setEditingText] = useState("");
   
   const API_URL = import.meta.env.VITE_API_URL;
-  const debouncedQuestion = useDebounce(question, 300); // Debounce question input
+  const debouncedQuestion = useDebounce(question, 300); 
 
   const chatContainerRef = useChatScroll(chatHistory);
   const fileInputRef = useRef(null);
@@ -145,13 +144,13 @@ export default function ChatPage() {
   const handleUpload = async (fileToUpload) => {
     if (!fileToUpload) return;
     
-    // Validate file type
+
     if (!fileToUpload.type.includes('pdf')) {
       setError("Please select a valid PDF file.");
       return;
     }
     
-    // Validate file size (10MB limit)
+
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (fileToUpload.size > maxSize) {
       setError("File size must be less than 10MB.");
@@ -168,7 +167,7 @@ export default function ChatPage() {
     try {
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 60000, // 60 second timeout
+        timeout: 60000, 
       });
       
       setDocId(res.data.docId || 'default');
@@ -182,7 +181,7 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Upload error:', err);
       
-      // Better error messages based on error type
+      
       if (err.response?.status === 400) {
         setError(err.response.data.error || "Invalid file format or size.");
       } else if (err.code === 'ECONNABORTED') {
@@ -225,7 +224,7 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Ask error:', err);
       
-      // Better error messages based on error type
+      
       if (err.response?.status === 400) {
         setError("Invalid question format. Please try again.");
       } else if (err.code === 'ECONNABORTED') {
@@ -236,7 +235,7 @@ export default function ChatPage() {
         setError("Failed to get an answer. Please try again.");
       }
       
-      // Remove the failed question from history
+      
       setChatHistory(prev => prev.slice(0, -1));
     } finally {
       setLoading(false);
@@ -298,7 +297,7 @@ export default function ChatPage() {
     setEditingText("");
   };
 
-  // --- Render Functions ---
+
 
   const renderUploadView = () => (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="text-center">
@@ -339,7 +338,7 @@ export default function ChatPage() {
 
       <div ref={chatContainerRef} className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
         {chatHistory.map((item, index) => {
-          // --- EDITING VIEW ---
+          
           if (item.sender === 'user' && editingIndex === index) {
             return (
               <div key={index} className="flex items-start gap-3 flex-row-reverse">
@@ -363,10 +362,10 @@ export default function ChatPage() {
             );
           }
           
-          // --- DISPLAY VIEW ---
+                
           return (
             <div key={index} className={`group flex items-center gap-2 ${item.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {/* Edit button for user messages, positioned correctly with flexbox */}
+              
               {item.sender === 'user' && !loading && editingIndex === null && (
                   <button 
                       onClick={() => handleStartEdit(index)}

@@ -17,7 +17,7 @@ const checkRateLimit = (ip: string) => {
   const now = Date.now();
   const userRequests = rateLimit.get(ip) || [];
 
-  // Remove old requests outside the window
+
   const validRequests = userRequests.filter(
     (time: number) => now - time < RATE_LIMIT_WINDOW
   );
@@ -31,17 +31,17 @@ const checkRateLimit = (ip: string) => {
   return true;
 };
 
-// Load env before using
+
 dotenv.config();
 
-// Cloudinary config
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
   api_key: process.env.CLOUDINARY_API_KEY!,
   api_secret: process.env.CLOUDINARY_API_SECRET!,
 });
 
-// Validate required environment variables
+
 if (
   !process.env.CLOUDINARY_CLOUD_NAME ||
   !process.env.CLOUDINARY_API_KEY ||
@@ -54,25 +54,25 @@ if (
 const app = express();
 const port = 3000;
 
-// Middleware
+
 app.use(cors());
 app.use(express.json());
 
-// Ensure uploads directory exists
+
 const uploadsDir = "uploads/";
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
   console.log("Created uploads directory");
 }
 
-// Use disk storage for multer
+
 const upload = multer({ dest: uploadsDir });
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-// Upload API
+
 app.post(
   "/upload",
   upload.single("pdf"),
@@ -98,14 +98,14 @@ app.post(
       console.log("Processing PDF:", fileName);
       console.log("Local file path:", filePath);
 
-      // Validate file type
+
       if (!req.file.mimetype.includes("pdf")) {
-        // Clean up the file immediately if it's the wrong type
+        
         fs.unlinkSync(filePath);
         return res.status(400).json({ error: "Only PDF files are allowed" });
       }
 
-      // First, upload to Cloudinary
+      
       console.log("📤 Uploading to Cloudinary...");
       const uploadResponse = await cloudinary.uploader.upload(filePath, {
         folder: "pagewise-pdfs",
@@ -120,7 +120,7 @@ app.post(
       console.log("✅ Cloudinary upload successful:", uploadResponse.secure_url);
       console.log("📊 File size in Cloudinary:", uploadResponse.bytes, "bytes");
 
-      // Now, initialize the agent with the local PDF
+      
       console.log("Initializing agent with local PDF...");
       await initAgent(filePath);
       console.log("Agent initialized successfully");
@@ -160,8 +160,7 @@ app.post(
 
       res.status(500).json({ error: errorMessage });
     } finally {
-      // This block is guaranteed to run, whether an error occurred or not.
-      // It ensures the local file is always deleted after processing.
+      
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
@@ -177,7 +176,7 @@ app.post(
   }
 );
 
-// Ask API
+
 app.post("/ask", async (req: Request, res: Response) => {
   const clientIp = req.ip || req.connection.remoteAddress || "unknown";
 
@@ -199,20 +198,20 @@ app.post("/ask", async (req: Request, res: Response) => {
   }
 });
 
-// Serve frontend
+
 const frontendDistPath = path.join(__dirname, "../../pdf-ai-frontend/dist");
 app.use(express.static(frontendDistPath));
 
-// Catch-all route
+
 app.use((req: Request, res: Response) => {
   res.sendFile(path.join(frontendDistPath, "index.html"));
 });
 
-// Cleanup function for old temporary files
+
 const cleanupOldFiles = () => {
   try {
     if (!fs.existsSync(uploadsDir)) {
-      return; // Directory doesn't exist, nothing to clean
+      return; 
     }
 
     const files = fs.readdirSync(uploadsDir);
@@ -243,10 +242,9 @@ const cleanupOldFiles = () => {
   }
 };
 
-// Run cleanup every 10 minutes
 setInterval(cleanupOldFiles, 10 * 60 * 1000);
 
-// Start server
+
 app.listen(port, () => {
   console.log(`✅ Server is running at http://localhost:${port}`);
   console.log(`📁 Uploads directory: ${path.resolve(uploadsDir)}`);
