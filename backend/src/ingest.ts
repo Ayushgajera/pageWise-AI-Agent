@@ -8,28 +8,122 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 export const loadPdf = async (path: string): Promise<string> => {
-  const dataBuffer = fs.readFileSync(path);
-  const pdfData = await pdfParse(dataBuffer);
-  return pdfData.text;
+  try {
+    // Check if path is a URL or local file
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      // Handle URL - download the file first
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF from URL: ${response.statusText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // Validate PDF header
+      if (!isValidPdf(buffer)) {
+        throw new Error("Invalid PDF file format");
+      }
+      
+      const pdfData = await pdfParse(buffer);
+      return pdfData.text;
+    } else {
+      // Handle local file
+      if (!fs.existsSync(path)) {
+        throw new Error(`PDF file not found: ${path}`);
+      }
+      
+      const dataBuffer = fs.readFileSync(path);
+      
+      // Validate PDF header
+      if (!isValidPdf(dataBuffer)) {
+        throw new Error("Invalid PDF file format");
+      }
+      
+      // Try to parse with different options for corrupted PDFs
+      try {
+        const pdfData = await pdfParse(dataBuffer);
+        return pdfData.text;
+      } catch (parseError) {
+        console.warn("First parsing attempt failed, trying with relaxed options...");
+        
+        // Try with relaxed parsing options
+        const pdfData = await pdfParse(dataBuffer, {
+          max: 0, // No page limit
+          version: 'v2.0.550'
+        });
+        return pdfData.text;
+      }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('bad XRef entry') || errorMessage.includes('FormatError')) {
+      throw new Error("PDF file is corrupted or has an invalid structure. Please try uploading a different PDF file.");
+    }
+    throw error;
+  }
+};
+
+// Helper function to validate PDF format
+const isValidPdf = (buffer: Buffer): boolean => {
+  try {
+    // Check for PDF header signature
+    const header = buffer.toString('ascii', 0, 8);
+    if (!header.startsWith('%PDF-')) {
+      return false;
+    }
+    
+    // Check for PDF trailer
+    const trailer = buffer.toString('ascii', buffer.length - 1024);
+    if (!trailer.includes('%%EOF')) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 export const embedPdf = async (pdfPath: string) => {
-  const text = await loadPdf(pdfPath);
+  try {
+    const text = await loadPdf(pdfPath);
+    
+    // Check if text was extracted successfully
+    if (!text || text.trim().length === 0) {
+      throw new Error("No text could be extracted from the PDF. The file might be empty, corrupted, or contain only images.");
+    }
 
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 100,
-  });
+    console.log(`📄 Extracted ${text.length} characters from PDF`);
 
-  const chunks = await splitter.createDocuments([text]);
+    // Optimize chunking for better retrieval
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 1500, // Increased for better context
+      chunkOverlap: 200, // Increased overlap for better continuity
+      separators: ["\n\n", "\n", ". ", "! ", "? ", " ", ""], // Better text splitting
+    });
 
-  const vectorStore = await MemoryVectorStore.fromDocuments(
-    chunks,
-    new GoogleGenerativeAIEmbeddings({
-      apiKey: process.env.GEMINI_API_KEY!,
-      model: "embedding-001",
-    })
-  );
+    const chunks = await splitter.createDocuments([text]);
+    console.log(`📝 Created ${chunks.length} text chunks`);
 
-  return vectorStore;
+    // Validate embeddings API key
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY environment variable is required");
+    }
+
+    const vectorStore = await MemoryVectorStore.fromDocuments(
+      chunks,
+      new GoogleGenerativeAIEmbeddings({
+        apiKey: process.env.GEMINI_API_KEY,
+        model: "embedding-001",
+        maxConcurrency: 5, // Limit concurrent requests
+      })
+    );
+
+    console.log("✅ PDF successfully embedded into vector store");
+    return vectorStore;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error embedding PDF:", errorMessage);
+    throw error;
+  }
 };

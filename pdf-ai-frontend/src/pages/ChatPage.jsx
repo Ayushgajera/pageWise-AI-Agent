@@ -17,16 +17,37 @@ const useChatScroll = (dep) => {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current) {
-      ref.current.scrollTop = ref.current.scrollHeight;
+      // Smooth scroll to bottom with better performance
+      ref.current.scrollTo({
+        top: ref.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [dep]);
   return ref;
 };
 
+// Debounce hook for better performance
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
 
 // --- UI Components ---
 
-const ChatMessage = ({ message }) => {
+const ChatMessage = React.memo(({ message }) => {
   const { sender, text } = message;
   const isUser = sender === 'user';
   const containerVariants = {
@@ -51,25 +72,34 @@ const ChatMessage = ({ message }) => {
       </div>
     </motion.div>
   );
-};
+});
 
-const TypingIndicator = () => (
-    <div className="flex items-start gap-3">
+const TypingIndicator = React.memo(() => (
+    <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-start gap-3"
+    >
         <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-slate-600">
             <FiCpu className="text-white" />
         </div>
         <div className="p-4 rounded-2xl bg-slate-700 text-slate-200 rounded-bl-none">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1">
+            <div className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-pulse [animation-delay:0s]"></span>
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-pulse [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-pulse [animation-delay:0.4s]"></span>
-            </motion.div>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Thinking...</p>
         </div>
-    </div>
-);
+    </motion.div>
+));
 
-const SuggestedQuestions = ({ questions, onQuestionClick }) => (
-    <div className="flex flex-col items-start gap-2 pt-4">
+const SuggestedQuestions = React.memo(({ questions, onQuestionClick }) => (
+    <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col items-start gap-2 pt-4"
+    >
         <p className="text-sm text-slate-400 font-medium">Suggested for you:</p>
         <div className="flex flex-wrap gap-2 justify-start">
             {questions.map((q, i) => (
@@ -79,14 +109,14 @@ const SuggestedQuestions = ({ questions, onQuestionClick }) => (
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
                     onClick={() => onQuestionClick(q)}
-                    className="bg-slate-700 text-slate-200 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-600 transition-colors"
+                    className="bg-slate-700 text-slate-200 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                     {q}
                 </motion.button>
             ))}
         </div>
-    </div>
-);
+    </motion.div>
+));
 
 
 // --- Main Page Component ---
@@ -102,7 +132,9 @@ export default function ChatPage() {
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
-const API_URL = import.meta.env.VITE_API_URL;
+  
+  const API_URL = import.meta.env.VITE_API_URL;
+  const debouncedQuestion = useDebounce(question, 300); // Debounce question input
 
   const chatContainerRef = useChatScroll(chatHistory);
   const fileInputRef = useRef(null);
@@ -116,6 +148,20 @@ const API_URL = import.meta.env.VITE_API_URL;
 
   const handleUpload = async (fileToUpload) => {
     if (!fileToUpload) return;
+    
+    // Validate file type
+    if (!fileToUpload.type.includes('pdf')) {
+      setError("Please select a valid PDF file.");
+      return;
+    }
+    
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (fileToUpload.size > maxSize) {
+      setError("File size must be less than 10MB.");
+      return;
+    }
+    
     const formData = new FormData();
     formData.append("pdf", fileToUpload);
     
@@ -124,11 +170,12 @@ const API_URL = import.meta.env.VITE_API_URL;
     setUiState("processing");
 
     try {
-      const res = await axios.post(`${API_URL}/upload`, formData, {
+      const res = await axios.post(`http://localhost:3000/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000, // 60 second timeout
       });
       
-      setDocId(res.data.docId);
+      setDocId(res.data.docId || 'default');
       setSuggestedQuestions(DEFAULT_SUGGESTED_QUESTIONS); 
       
       setChatHistory([{
@@ -137,8 +184,19 @@ const API_URL = import.meta.env.VITE_API_URL;
       }]);
       setUiState("chat");
     } catch (err) {
-      setError("Upload failed. Please check the file and try again.");
-      console.error(err);
+      console.error('Upload error:', err);
+      
+      // Better error messages based on error type
+      if (err.response?.status === 400) {
+        setError(err.response.data.error || "Invalid file format or size.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Upload timed out. Please try again.");
+      } else if (err.response?.status >= 500) {
+        setError("Server error. Please try again later.");
+      } else {
+        setError("Upload failed. Please check your connection and try again.");
+      }
+      
       setUiState("upload");
     }
   };
@@ -156,15 +214,34 @@ const API_URL = import.meta.env.VITE_API_URL;
     setSuggestedQuestions([]);
 
     try {
-      const res = await axios.post(`${API_URL}/ask`, { 
+      const res = await axios.post(`http://localhost:3000/ask`, { 
         question: currentQuestion, 
         docId 
+      }, {
+        timeout: 30000, // 30 second timeout
       });
-      setChatHistory([...newHistory, { sender: "ai", text: res.data.answer }]);
-    } catch (err)
-     {
-      setError("Failed to get an answer. Please try again.");
-      console.error(err);
+      
+      if (res.data.answer) {
+        setChatHistory([...newHistory, { sender: "ai", text: res.data.answer }]);
+      } else {
+        throw new Error("No answer received from server");
+      }
+    } catch (err) {
+      console.error('Ask error:', err);
+      
+      // Better error messages based on error type
+      if (err.response?.status === 400) {
+        setError("Invalid question format. Please try again.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Request timed out. Please try again.");
+      } else if (err.response?.status >= 500) {
+        setError("Server error. Please try again later.");
+      } else {
+        setError("Failed to get an answer. Please try again.");
+      }
+      
+      // Remove the failed question from history
+      setChatHistory(prev => prev.slice(0, -1));
     } finally {
       setLoading(false);
     }
@@ -199,7 +276,7 @@ const API_URL = import.meta.env.VITE_API_URL;
     setEditingText('');
 
     try {
-        const res = await axios.post(`${API_URL}/ask`, {
+        const res = await axios.post(`http://localhost:3000/ask`, {
             question: editingText,
             docId
         });
