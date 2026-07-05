@@ -61,10 +61,10 @@ export default function AboutPage() {
     ];
 
     return (
-        <div className="relative overflow-hidden">
+        <div className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden">
             <div className="about-orb about-orb-a" />
             <div className="about-orb about-orb-b" />
-            <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-20">
+            <div className="mx-auto max-w-7xl px-4 py-12 pb-20 md:px-6 md:py-20">
                 <motion.section 
                     initial={{ opacity: 0, y: -30 }}
                     animate={{ opacity: 1, y: 0 }}
