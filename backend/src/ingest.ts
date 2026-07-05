@@ -63,6 +63,25 @@ export const loadPdf = async (path: string): Promise<string> => {
   }
 };
 
+export const loadPdfFromBuffer = async (buffer: Buffer): Promise<string> => {
+  if (!isValidPdf(buffer)) {
+    throw new Error("Invalid PDF file format");
+  }
+
+  try {
+    const pdfData = await pdfParse(buffer);
+    return pdfData.text;
+  } catch (parseError) {
+    console.warn("First parsing attempt failed, trying with relaxed options...");
+
+    const pdfData = await pdfParse(buffer, {
+      max: 0,
+      version: "v2.0.550",
+    });
+    return pdfData.text;
+  }
+};
+
 // Helper function to validate PDF format
 const isValidPdf = (buffer: Buffer): boolean => {
   try {
@@ -97,8 +116,8 @@ export const embedPdf = async (pdfPath: string) => {
 
     // Optimize chunking for better retrieval
     const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1500, // Increased for better context
-      chunkOverlap: 200, // Increased overlap for better continuity
+      chunkSize: 3000,
+      chunkOverlap: 100,
       separators: ["\n\n", "\n", ". ", "! ", "? ", " ", ""], // Better text splitting
     });
 
@@ -110,12 +129,59 @@ export const embedPdf = async (pdfPath: string) => {
       throw new Error("GEMINI_API_KEY environment variable is required");
     }
 
+    const embeddingModel =
+      process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001";
+
     const vectorStore = await MemoryVectorStore.fromDocuments(
       chunks,
       new GoogleGenerativeAIEmbeddings({
         apiKey: process.env.GEMINI_API_KEY,
-        model: "embedding-001",
+        model: embeddingModel,
         maxConcurrency: 5, // Limit concurrent requests
+      })
+    );
+
+    console.log("✅ PDF successfully embedded into vector store");
+    return vectorStore;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error embedding PDF:", errorMessage);
+    throw error;
+  }
+};
+
+export const embedPdfBuffer = async (pdfBuffer: Buffer) => {
+  try {
+    const text = await loadPdfFromBuffer(pdfBuffer);
+
+    if (!text || text.trim().length === 0) {
+      throw new Error("No text could be extracted from the PDF. The file might be empty, corrupted, or contain only images.");
+    }
+
+    console.log(`📄 Extracted ${text.length} characters from PDF`);
+
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 3000,
+      chunkOverlap: 100,
+      separators: ["\n\n", "\n", ". ", "! ", "? ", " ", ""],
+    });
+
+    const chunks = await splitter.createDocuments([text]);
+    console.log(`📝 Created ${chunks.length} text chunks`);
+
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY environment variable is required");
+    }
+
+    const embeddingModel =
+      process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001";
+
+    const vectorStore = await MemoryVectorStore.fromDocuments(
+      chunks,
+      new GoogleGenerativeAIEmbeddings({
+        apiKey: process.env.GEMINI_API_KEY,
+        model: embeddingModel,
+        maxConcurrency: 5,
       })
     );
 

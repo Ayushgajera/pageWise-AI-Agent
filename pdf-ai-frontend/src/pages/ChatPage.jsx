@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
-import { FiUploadCloud, FiSend, FiLoader, FiUser, FiCpu, FiFileText, FiTrash2, FiAlertTriangle, FiEdit2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowRight, FiCheckCircle, FiCpu, FiEdit2, FiFileText, FiLoader, FiSend, FiShield, FiTrash2, FiUploadCloud, FiUser, FiZap } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DEFAULT_SUGGESTED_QUESTIONS = [
@@ -10,6 +10,8 @@ const DEFAULT_SUGGESTED_QUESTIONS = [
   "What is the overall tone of this document?",
   "Who is the intended audience?",
 ];
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 
 const useChatScroll = (dep) => {
@@ -61,12 +63,12 @@ const ChatMessage = React.memo(({ message }) => {
       animate="visible"
       className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
     >
-      <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${isUser ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+      <div className={`message-avatar ${isUser ? 'message-avatar-user' : 'message-avatar-ai'}`}>
         {isUser ? <FiUser className="text-white" /> : <FiCpu className="text-white" />}
       </div>
-      <div className={`p-3 md:p-4 rounded-2xl max-w-md md:max-w-lg ${isUser ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`}>
-        <article className="prose prose-invert prose-sm max-w-none">
-          <ReactMarkdown>{text}</ReactMarkdown>
+      <div className={`message-bubble max-w-md md:max-w-xl ${isUser ? 'message-bubble-user' : 'message-bubble-ai'}`}>
+        <article className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4">
+          <ReactMarkdown components={markdownComponents}>{text}</ReactMarkdown>
         </article>
       </div>
     </motion.div>
@@ -79,10 +81,10 @@ const TypingIndicator = React.memo(() => (
         animate={{ opacity: 1, y: 0 }}
         className="flex items-start gap-3"
     >
-        <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-slate-600">
+        <div className="message-avatar message-avatar-ai">
             <FiCpu className="text-white" />
         </div>
-        <div className="p-4 rounded-2xl bg-slate-700 text-slate-200 rounded-bl-none">
+        <div className="message-bubble message-bubble-ai rounded-bl-none">
             <div className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-pulse [animation-delay:0s]"></span>
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-pulse [animation-delay:0.2s]"></span>
@@ -94,7 +96,7 @@ const TypingIndicator = React.memo(() => (
 ));
 
 const SuggestedQuestions = ({ questions, onQuestionClick }) => (
-    <div className="flex flex-col items-start gap-2 pt-4">
+  <div className="flex flex-col items-start gap-3 pt-4">
         <p className="text-sm text-slate-400 font-medium">Suggested for you:</p>
         <div className="flex flex-wrap gap-2 justify-start">
             {questions.map((q, i) => (
@@ -104,7 +106,7 @@ const SuggestedQuestions = ({ questions, onQuestionClick }) => (
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
                     onClick={() => onQuestionClick(q)}
-                    className="bg-slate-700 text-slate-200 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-600 transition-colors"
+                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10"
                 >
                     {q}
                 </motion.button>
@@ -112,6 +114,33 @@ const SuggestedQuestions = ({ questions, onQuestionClick }) => (
         </div>
     </div>
 );
+
+const markdownComponents = {
+  h1: ({ children }) => <h1 className="mb-3 text-xl font-semibold text-white">{children}</h1>,
+  h2: ({ children }) => <h2 className="mb-3 text-lg font-semibold text-white">{children}</h2>,
+  h3: ({ children }) => <h3 className="mb-2 text-base font-semibold text-emerald-200">{children}</h3>,
+  p: ({ children }) => <p className="mb-3 leading-7 text-slate-100 last:mb-0">{children}</p>,
+  ul: ({ children }) => <ul className="mb-3 ml-5 list-disc space-y-2 text-slate-100">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-3 ml-5 list-decimal space-y-2 text-slate-100">{children}</ol>,
+  li: ({ children }) => <li className="leading-7 marker:text-emerald-300">{children}</li>,
+  blockquote: ({ children }) => (
+    <blockquote className="mb-3 rounded-2xl border-l-4 border-emerald-400/70 bg-emerald-400/10 px-4 py-3 text-slate-100">
+      {children}
+    </blockquote>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+  a: ({ children, href }) => (
+    <a href={href} className="text-emerald-300 underline decoration-emerald-300/40 underline-offset-4">
+      {children}
+    </a>
+  ),
+  code: ({ inline, children }) =>
+    inline ? (
+      <code className="rounded bg-white/10 px-1.5 py-0.5 text-[0.95em] text-emerald-200">{children}</code>
+    ) : (
+      <code className="block overflow-x-auto rounded-2xl bg-slate-950/80 p-4 text-sm text-emerald-100">{children}</code>
+    ),
+};
 
 
 
@@ -128,11 +157,22 @@ export default function ChatPage() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
   
-  const API_URL = import.meta.env.VITE_API_URL;
   const debouncedQuestion = useDebounce(question, 300); 
 
   const chatContainerRef = useChatScroll(chatHistory);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -167,17 +207,19 @@ export default function ChatPage() {
     try {
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 60000, 
+        timeout: 180000,
       });
       
-      setDocId(res.data.docId || 'default');
+      setDocId(res.data.docId || '');
       setSuggestedQuestions(DEFAULT_SUGGESTED_QUESTIONS); 
       
       setChatHistory([{
         sender: "ai",
-        text: `Ready! I've analyzed **${fileToUpload.name}**. What would you like to know?`,
+        text: res.data.status === 'ready'
+          ? `Ready! I've analyzed **${fileToUpload.name}**. What would you like to know?`
+          : `Your file is uploaded and indexing is running in the background. I'll enable questions as soon as it's ready.`,
       }]);
-      setUiState("chat");
+      setUiState(res.data.status === 'ready' ? "chat" : "processing");
     } catch (err) {
       console.error('Upload error:', err);
       
@@ -213,7 +255,7 @@ export default function ChatPage() {
         question: currentQuestion, 
         docId 
       }, {
-        timeout: 30000, // 30 second timeout
+        timeout: 0,
       });
       
       if (res.data.answer) {
@@ -225,6 +267,9 @@ export default function ChatPage() {
       console.error('Ask error:', err);
       
       
+      if (err.response?.status === 409) {
+        setError(err.response.data.error || "Document is still processing. Please wait a moment.");
+      } else
       if (err.response?.status === 400) {
         setError("Invalid question format. Please try again.");
       } else if (err.code === 'ECONNABORTED') {
@@ -274,6 +319,8 @@ export default function ChatPage() {
         const res = await axios.post(`${API_URL}/ask`, {
             question: editingText,
             docId
+        }, {
+          timeout: 0,
         });
         setChatHistory([...updatedHistoryWithEdit, { sender: "ai", text: res.data.answer }]);
     } catch (err) {
@@ -297,31 +344,70 @@ export default function ChatPage() {
     setEditingText("");
   };
 
+  useEffect(() => {
+    if (!docId || uiState !== 'processing') {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const response = await axios.get(`${API_URL}/status/${docId}`);
+        if (response.data.status === 'ready') {
+          setSuggestedQuestions(DEFAULT_SUGGESTED_QUESTIONS);
+          setChatHistory((previous) => previous.length > 0 ? previous : [{
+            sender: 'ai',
+            text: `Ready! I've analyzed **${fileName}**. What would you like to know?`,
+          }]);
+          setUiState('chat');
+          window.clearInterval(intervalId);
+        } else if (response.data.status === 'error') {
+          setError(response.data.error || 'Document processing failed.');
+          setUiState('upload');
+          window.clearInterval(intervalId);
+        }
+      } catch (error) {
+        console.error('Status polling error:', error);
+      }
+    }, 1200);
+
+    return () => window.clearInterval(intervalId);
+  }, [docId, fileName, uiState]);
+
 
 
   const renderUploadView = () => (
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="text-center">
-        <h1 className="text-4xl font-bold text-white mb-2">Chat With Your PDF</h1>
-        <p className="text-slate-300 mb-8">Upload a document to get started.</p>
+      <motion.div initial={{ opacity: 0, scale: 0.97, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="text-center">
+        <div className="section-badge mx-auto mb-5 inline-flex items-center gap-2">
+          <FiShield /> Secure workspace
+        </div>
+        <h1 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">Launch your document AI workspace</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">Upload a PDF and instantly turn it into a premium chat experience with summaries, insights, and editable follow-up questions.</p>
         <div 
-          className="w-full max-w-lg mx-auto border-2 border-dashed border-slate-600 rounded-xl p-12 text-center cursor-pointer hover:border-indigo-500 hover:bg-slate-800/20 transition-all duration-300"
+          className="upload-zone mx-auto mt-10 flex w-full max-w-2xl cursor-pointer flex-col items-center gap-4 rounded-[28px] p-10 text-center transition"
           onClick={() => fileInputRef.current.click()}
           onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]); }}
           onDragOver={(e) => e.preventDefault()}
         >
-          <FiUploadCloud className="mx-auto text-5xl text-slate-400 mb-4" />
-          <p className="text-slate-300"><span className="font-semibold text-indigo-400">Click to upload</span> or drag and drop a PDF</p>
+          <div className="upload-icon">
+            <FiUploadCloud />
+          </div>
+          <div>
+            <p className="text-lg font-medium text-white"><span className="text-emerald-300">Click to upload</span> or drag and drop a PDF</p>
+            <p className="mt-2 text-sm text-slate-400">Files are validated locally before upload. Max size: 10MB.</p>
+          </div>
         </div>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
-        {error && <p className="text-red-400 mt-4 flex items-center justify-center gap-2"><FiAlertTriangle />{error}</p>}
+        {error && <p className="mt-4 flex items-center justify-center gap-2 text-red-400"><FiAlertTriangle />{error}</p>}
       </motion.div>
   );
   
   const renderProcessingView = () => (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-        <FiLoader className="mx-auto text-5xl text-indigo-400 animate-spin mb-4" />
-        <p className="text-slate-300 text-xl">Analyzing your document...</p>
-        <p className="text-slate-400 mt-1 truncate">{fileName}</p>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
+          <FiLoader className="animate-spin text-3xl" />
+        </div>
+        <p className="mt-6 text-2xl font-semibold text-white">Analyzing your document</p>
+        <p className="mt-2 text-slate-400">{fileName}</p>
       </motion.div>
   );
 
@@ -329,33 +415,72 @@ export default function ChatPage() {
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }} 
       animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col h-full w-full max-w-4xl mx-auto bg-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+      className="chat-shell flex h-full min-h-0 w-full flex-col overflow-hidden rounded-none md:rounded-none"
     >
-      <div className="bg-slate-900 p-4 flex justify-between items-center border-b border-slate-700">
-        <div className="flex items-center gap-3"><FiFileText className="text-indigo-400 text-xl"/><p className="font-semibold text-white truncate max-w-xs">{fileName}</p></div>
-        <button onClick={handleReset} className="flex items-center gap-2 text-sm bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-600 hover:text-white transition-colors"><FiTrash2 /> New Chat</button>
+      <div className="flex items-center justify-between border-b border-white/10 bg-slate-950/80 px-4 py-4 backdrop-blur-xl md:px-6">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="icon-chip"><FiFileText /></div>
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Current document</p>
+            <p className="truncate text-base font-semibold text-white">{fileName}</p>
+          </div>
+        </div>
+        <button onClick={handleReset} className="button-secondary inline-flex items-center gap-2 text-sm">
+          <FiTrash2 /> New chat
+        </button>
       </div>
 
-      <div ref={chatContainerRef} className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
-        {chatHistory.map((item, index) => {
+      <div className="grid flex-1 min-h-0 gap-0 lg:grid-cols-[280px_1fr]">
+        <aside className="hidden border-r border-white/10 bg-slate-950/50 p-5 lg:block">
+          <div className="glass-card p-5">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Workflow</p>
+            <div className="mt-4 space-y-4 text-sm text-slate-300">
+              <div className="flex items-start gap-3">
+                <FiCheckCircle className="mt-0.5 text-emerald-300" />
+                Upload validated and ready for retrieval
+              </div>
+              <div className="flex items-start gap-3">
+                <FiZap className="mt-0.5 text-emerald-300" />
+                Ask precise questions or choose suggested prompts
+              </div>
+              <div className="flex items-start gap-3">
+                <FiCpu className="mt-0.5 text-emerald-300" />
+                AI responses stay grounded in the document context
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card mt-5 p-5">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Tips</p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-300">
+              <li>Use summary prompts first to map the document.</li>
+              <li>Edit a question to refine the answer path.</li>
+              <li>Upload another PDF anytime with New chat.</li>
+            </ul>
+          </div>
+        </aside>
+
+        <div className="flex min-h-0 flex-col bg-slate-950/30">
+          <div ref={chatContainerRef} className="flex-1 min-h-0 space-y-6 overflow-y-auto px-4 py-6 md:px-6 lg:px-8">
+            {chatHistory.map((item, index) => {
           
           if (item.sender === 'user' && editingIndex === index) {
             return (
               <div key={index} className="flex items-start gap-3 flex-row-reverse">
-                <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-indigo-500">
+                <div className="message-avatar message-avatar-user">
                   <FiUser className="text-white" />
                 </div>
                 <div className="flex-1">
                   <textarea
                     value={editingText}
                     onChange={(e) => setEditingText(e.target.value)}
-                    className="w-full bg-slate-700 text-white placeholder-slate-400 p-3 rounded-lg border border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full rounded-2xl border border-emerald-400/30 bg-slate-900/80 p-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all"
                     rows={Math.max(3, editingText.split('\n').length)}
                     autoFocus
                   />
                   <div className="flex justify-end gap-2 mt-2">
                       <button onClick={handleCancelEdit} className="text-sm text-slate-400 hover:text-white transition-colors">Cancel</button>
-                      <button onClick={handleSaveAndSubmit} className="text-sm bg-indigo-600 text-white px-4 py-1 rounded-md hover:bg-indigo-500 transition-colors">Save & Submit</button>
+                      <button onClick={handleSaveAndSubmit} className="button-primary inline-flex items-center gap-2 text-sm"><FiArrowRight /> Save & submit</button>
                   </div>
                 </div>
               </div>
@@ -369,7 +494,7 @@ export default function ChatPage() {
               {item.sender === 'user' && !loading && editingIndex === null && (
                   <button 
                       onClick={() => handleStartEdit(index)}
-                      className="p-2 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-slate-700 hover:text-white transition-all"
+                        className="rounded-full p-2 text-slate-400 opacity-0 transition-all hover:bg-white/10 hover:text-white group-hover:opacity-100"
                   >
                       <FiEdit2 size={16}/>
                   </button>
@@ -380,25 +505,28 @@ export default function ChatPage() {
           )
         })}
 
-        {loading && <TypingIndicator />}
-        {suggestedQuestions.length > 0 && !loading && (
-             <SuggestedQuestions questions={suggestedQuestions} onQuestionClick={(q) => handleAskQuestion(null, q)} />
-        )}
-      </div>
+            {loading && <TypingIndicator />}
+            {suggestedQuestions.length > 0 && !loading && (
+              <SuggestedQuestions questions={suggestedQuestions} onQuestionClick={(q) => handleAskQuestion(null, q)} />
+            )}
+          </div>
 
-      <div className="p-4 bg-slate-900 border-t border-slate-700">
-        <form onSubmit={handleAskQuestion} className="relative">
-          <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question..." className="w-full bg-slate-700 text-white placeholder-slate-400 p-4 rounded-xl border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all pr-14" disabled={loading || editingIndex !== null} />
-          <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-500 disabled:bg-indigo-400/50 disabled:cursor-not-allowed transition-colors" disabled={!question || loading || editingIndex !== null}><FiSend className="text-xl"/></button>
-        </form>
-        {error && <p className="text-red-400 text-sm mt-2 flex items-center gap-2"><FiAlertTriangle />{error}</p>}
+          <div className="border-t border-white/10 bg-slate-950/80 p-4 md:p-6">
+            <form onSubmit={handleAskQuestion} className="relative">
+              <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about sections, numbers, summaries, or definitions..." className="w-full rounded-2xl border border-white/10 bg-slate-900/80 p-4 pr-16 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition-all" disabled={loading || editingIndex !== null} />
+              <button type="submit" className="button-primary absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 px-4 py-2" disabled={!question || loading || editingIndex !== null}><FiSend className="text-lg"/></button>
+            </form>
+            {error && <p className="mt-3 flex items-center gap-2 text-sm text-red-400"><FiAlertTriangle />{error}</p>}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-slate-900 h-full">
-      <div className="w-full h-full">
+    <div className="relative flex h-full min-h-0 w-full flex-1 overflow-hidden overscroll-contain p-0">
+      <div className="chat-backdrop" />
+      <div className="relative flex h-full min-h-0 w-full flex-col">
         <AnimatePresence mode="wait">
           {uiState === 'upload' && renderUploadView()}
           {uiState === 'processing' && renderProcessingView()}

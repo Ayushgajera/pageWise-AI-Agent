@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiUploadCloud, FiMessageSquare, FiCheckCircle, FiCpu, FiDatabase, FiLayers, FiCode } from 'react-icons/fi';
+import { FiCheckCircle, FiCode, FiCpu, FiDatabase, FiLayers, FiMessageSquare, FiShield, FiUploadCloud } from 'react-icons/fi';
 import { FaReact, FaNodeJs } from 'react-icons/fa';
 
 // A reusable card for the "How it Works" section
@@ -12,7 +12,7 @@ const FeatureStepCard = ({ icon, title, description, delay }) => (
         viewport={{ once: true, amount: 0.5 }}
         className="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center"
     >
-        <div className="bg-indigo-600 text-white w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="bg-emerald-600 text-white w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
             {icon}
         </div>
         <h3 className="font-bold text-white text-xl mb-2">{title}</h3>
@@ -22,13 +22,31 @@ const FeatureStepCard = ({ icon, title, description, delay }) => (
 
 // A reusable card for the "Technology Stack" section
 const TechCard = ({ icon, name }) => (
-    <div className="bg-slate-800 p-4 rounded-lg flex items-center gap-4 border border-slate-700 hover:border-indigo-500 hover:bg-slate-700/50 transition-all">
-        <div className="text-indigo-400 text-3xl">
+    <div className="glass-card flex items-center gap-4 p-4 transition hover:-translate-y-1">
+        <div className="icon-chip">
             {icon}
         </div>
         <span className="font-medium text-white">{name}</span>
     </div>
 );
+
+const pillars = [
+    {
+        title: 'Document intelligence',
+        description: 'The experience is designed like a premium SaaS platform: fast, clear, and centered on the active workflow.',
+        icon: <FiCpu />,
+    },
+    {
+        title: 'Trust and clarity',
+        description: 'Every major state has a visual hierarchy, from upload to processing to guided conversation.',
+        icon: <FiShield />,
+    },
+    {
+        title: 'Scalable foundation',
+        description: 'The UI keeps the existing upload and ask flow, while making room for future features like teams and analytics.',
+        icon: <FiDatabase />,
+    },
+];
 
 export default function AboutPage() {
     const techStack = [
@@ -43,57 +61,73 @@ export default function AboutPage() {
     ];
 
     return (
-        <div className="bg-slate-900 text-slate-200">
-            <div className="max-w-5xl mx-auto px-4 md:px-6 py-12 md:py-20">
-                {/* --- Hero Section --- */}
+        <div className="relative overflow-hidden">
+            <div className="about-orb about-orb-a" />
+            <div className="about-orb about-orb-b" />
+            <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-20">
                 <motion.section 
                     initial={{ opacity: 0, y: -30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7 }}
-                    className="text-center mb-16 md:mb-24"
+                    className="mx-auto mb-16 max-w-4xl text-center md:mb-24"
                 >
-                    <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
-                        Making Documents Intelligent
+                    <div className="section-badge mx-auto mb-5 inline-flex items-center gap-2">
+                        <FiLayers /> Product narrative
+                    </div>
+                    <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl">
+                        Making documents feel like a premium product surface.
                     </h1>
-                    <p className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto">
-                        PageWise is built to help you instantly find answers and insights from your documents. We turn static files into dynamic conversations.
+                    <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-300 md:text-xl">
+                        PageWise turns PDF uploads into a clean, high-confidence SaaS workflow where users can upload, ask, edit, and continue the conversation without friction.
                     </p>
                 </motion.section>
 
-                {/* --- How It Works Section --- */}
                 <section className="mb-16 md:mb-24">
-                    <h2 className="text-3xl font-bold text-center text-white mb-12">How It Works</h2>
-                    <div className="grid md:grid-cols-3 gap-8">
+                    <h2 className="mb-4 text-center text-3xl font-semibold text-white md:text-4xl">How the experience is structured</h2>
+                    <p className="mx-auto mb-12 max-w-2xl text-center text-slate-300">The interface is designed around one core loop: upload, analyze, ask, refine, and repeat.</p>
+                    <div className="grid gap-6 md:grid-cols-3">
                         <FeatureStepCard 
                             icon={<FiUploadCloud size={28}/>} 
                             title="1. Upload PDF"
-                            description="Securely upload any PDF document. Your files are processed and prepared for analysis."
+                            description="Securely upload a PDF. The app validates the file, uploads it, and prepares a retrieval-ready workspace."
                             delay={0.1}
                         />
                         <FeatureStepCard 
                             icon={<FiMessageSquare size={28}/>}
                             title="2. Ask Questions"
-                            description="Start a conversation. Ask questions in natural language, just like you would with a person."
+                            description="Start a conversation in a polished chat workspace with suggested prompts, editing, and live response states."
                             delay={0.2}
                         />
                         <FeatureStepCard 
                             icon={<FiCheckCircle size={28}/>}
                             title="3. Get Answers"
-                            description="Receive instant, accurate answers pulled directly from the context of your document."
+                            description="Receive answers that are retrieved from the document context and presented with readable formatting."
                             delay={0.3}
                         />
                     </div>
                 </section>
 
-                {/* --- Tech Stack Section --- */}
+                <section className="mb-16 md:mb-24">
+                    <div className="grid gap-6 lg:grid-cols-3">
+                        {pillars.map((pillar) => (
+                            <div key={pillar.title} className="glass-card p-6">
+                                <div className="icon-chip mb-4">{pillar.icon}</div>
+                                <h3 className="text-xl font-semibold text-white">{pillar.title}</h3>
+                                <p className="mt-3 text-sm leading-6 text-slate-300">{pillar.description}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
                 <section>
-                    <h2 className="text-3xl font-bold text-center text-white mb-12">Powered by Modern Technology</h2>
+                    <h2 className="mb-4 text-center text-3xl font-semibold text-white md:text-4xl">Powered by modern tooling</h2>
+                    <p className="mx-auto mb-12 max-w-2xl text-center text-slate-300">A streamlined React, Tailwind, and Node.js stack stays focused on product quality instead of visual noise.</p>
                     <motion.div 
                         initial={{ opacity: 0 }}
                         whileInView={{ opacity: 1 }}
                         transition={{ staggerChildren: 0.05, duration: 0.5 }}
                         viewport={{ once: true, amount: 0.2 }}
-                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
+                        className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4"
                     >
                         {techStack.map(tech => (
                              <motion.div

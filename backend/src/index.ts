@@ -3,10 +3,10 @@ import multer from "multer";
 import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
-import { initAgent, askAgent } from "./agent";
+import { askAgent, createDocumentJob, getDocumentJob, processDocumentJob } from "./agent";
 import { v2 as cloudinary } from "cloudinary";
-import fs from "fs";
-import util from "util";
+import { Readable } from "stream";
+import crypto from "crypto";
 
 // Simple rate limiting
 const rateLimit = new Map();
@@ -59,18 +59,44 @@ app.use(cors());
 app.use(express.json());
 
 
-const uploadsDir = "uploads/";
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log("Created uploads directory");
-}
-
-
-const upload = multer({ dest: uploadsDir });
+const upload = multer({ storage: multer.memoryStorage() });
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
+
+const buildSafePublicId = (fileName: string) => {
+  const baseName = fileName.replace(/\.pdf$/i, "").trim();
+  return baseName
+    .replace(/[\\/]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+};
+
+const uploadBufferToCloudinary = (buffer: Buffer, fileName: string) =>
+  new Promise<{ secure_url?: string; bytes?: number }>((resolve, reject) => {
+    const publicId = buildSafePublicId(fileName) || `pdf-${Date.now()}`;
+
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "pagewise-pdfs",
+        resource_type: "raw",
+        public_id: publicId,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve({ secure_url: result?.secure_url, bytes: result?.bytes });
+      }
+    );
+
+    Readable.from(buffer).pipe(stream);
+  });
 
 
 app.post(
@@ -91,26 +117,25 @@ app.post(
         .json({ error: "No PDF file uploaded or an internal error occurred" });
     }
 
-    const filePath = req.file.path;
     const fileName = req.file.originalname;
+    const fileBuffer = req.file.buffer;
+    const docId = crypto.randomUUID();
 
     try {
       console.log("Processing PDF:", fileName);
-      console.log("Local file path:", filePath);
+      createDocumentJob(docId, fileName);
 
 
       if (!req.file.mimetype.includes("pdf")) {
-        
-        fs.unlinkSync(filePath);
         return res.status(400).json({ error: "Only PDF files are allowed" });
       }
 
       
       console.log("📤 Uploading to Cloudinary...");
-      const uploadResponse = await cloudinary.uploader.upload(filePath, {
-        folder: "pagewise-pdfs",
-        resource_type: "raw", // for PDFs
-        public_id: fileName.replace(/\.pdf$/, ""),
+      const uploadResponse = await uploadBufferToCloudinary(fileBuffer, fileName);
+
+      void processDocumentJob(docId, fileBuffer, fileName).catch((error) => {
+        console.error(`Background indexing failed for ${docId}:`, error);
       });
 
       if (!uploadResponse.secure_url) {
@@ -120,9 +145,6 @@ app.post(
       console.log("✅ Cloudinary upload successful:", uploadResponse.secure_url);
       console.log("📊 File size in Cloudinary:", uploadResponse.bytes, "bytes");
 
-      
-      console.log("Initializing agent with local PDF...");
-      await initAgent(filePath);
       console.log("Agent initialized successfully");
 
       console.log("🎉 PDF processing completed successfully!");
@@ -132,7 +154,9 @@ app.post(
       console.log("   - File stored at:", uploadResponse.secure_url);
 
       res.json({
-        message: "PDF uploaded to Cloudinary and agent initialized",
+        docId,
+        status: getDocumentJob(docId)?.status ?? "processing",
+        message: "PDF uploaded to Cloudinary and indexing started",
         url: uploadResponse.secure_url,
       });
     } catch (err) {
@@ -159,19 +183,6 @@ app.post(
       }
 
       res.status(500).json({ error: errorMessage });
-    } finally {
-      
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          console.log(`✅ Local temporary file deleted: ${filePath}`);
-        } catch (cleanupErr) {
-          console.error(
-            `❌ Failed to delete local file ${filePath}:`,
-            cleanupErr
-          );
-        }
-      }
     }
   }
 );
@@ -186,16 +197,40 @@ app.post("/ask", async (req: Request, res: Response) => {
       .json({ error: "Rate limit exceeded. Please try again later." });
   }
   try {
-    const { question } = req.body;
+    const { question, docId } = req.body;
     if (!question)
       return res.status(400).json({ error: "Question is required" });
 
-    const answer = await askAgent(question);
+    if (!docId) {
+      return res.status(400).json({ error: "Document id is required" });
+    }
+
+    const answer = await askAgent(docId, question);
     res.json({ answer });
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    if (errorMessage.includes("processing")) {
+      return res.status(409).json({ error: errorMessage });
+    }
+
     console.error("Ask error:", err);
-    res.status(500).json({ error: "Failed to get answer" });
+    res.status(500).json({ error: errorMessage || "Failed to get answer" });
   }
+});
+
+app.get("/status/:docId", (req: Request, res: Response) => {
+  const job = getDocumentJob(req.params.docId);
+
+  if (!job) {
+    return res.status(404).json({ status: "missing" });
+  }
+
+  return res.json({
+    status: job.status,
+    fileName: job.fileName,
+    error: job.error,
+  });
 });
 
 
@@ -208,44 +243,6 @@ app.use((req: Request, res: Response) => {
 });
 
 
-const cleanupOldFiles = () => {
-  try {
-    if (!fs.existsSync(uploadsDir)) {
-      return; 
-    }
-
-    const files = fs.readdirSync(uploadsDir);
-    const now = Date.now();
-    const maxAge = 30 * 60 * 1000; // 30 minutes
-    let cleanedCount = 0;
-
-    files.forEach((file) => {
-      const filePath = path.join(uploadsDir, file);
-      try {
-        const stats = fs.statSync(filePath);
-
-        if (now - stats.mtime.getTime() > maxAge) {
-          fs.unlinkSync(filePath);
-          console.log(`🧹 Cleaned up old file: ${file}`);
-          cleanedCount++;
-        }
-      } catch (fileErr) {
-        console.warn(`Error processing file ${file}:`, fileErr);
-      }
-    });
-
-    if (cleanedCount > 0) {
-      console.log(`🧹 Cleanup completed: ${cleanedCount} files removed`);
-    }
-  } catch (err) {
-    console.warn("Error during cleanup:", err);
-  }
-};
-
-setInterval(cleanupOldFiles, 10 * 60 * 1000);
-
-
 app.listen(port, () => {
   console.log(`✅ Server is running at http://localhost:${port}`);
-  console.log(`📁 Uploads directory: ${path.resolve(uploadsDir)}`);
 });

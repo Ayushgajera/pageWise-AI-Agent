@@ -8,9 +8,9 @@ import AboutPage from './pages/AboutPage';
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col bg-gradient-to-br from-slate-900 to-gray-800">
+      <div className="app-shell flex h-screen min-h-0 flex-col overflow-hidden text-white">
         <Navbar />
-        <main className="flex-1 flex flex-col">
+        <main className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/chat" element={<ChatPage />} />

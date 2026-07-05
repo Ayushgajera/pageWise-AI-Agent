@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+
 const PdfUploader = ({ onUploadSuccess, onError }) => {
   const [pdfFile, setPdfFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -56,7 +58,7 @@ const PdfUploader = ({ onUploadSuccess, onError }) => {
 
     try {
       setUploading(true);
-      const res = await axios.post("http://localhost:3000/upload", formData, {
+      const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -80,14 +82,14 @@ const PdfUploader = ({ onUploadSuccess, onError }) => {
   }, [pdfFile, onUploadSuccess, onError]);
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-4 text-center">Upload PDF</h2>
+    <div className="mx-auto w-full max-w-xl">
+      <h2 className="text-center text-2xl font-semibold text-white">Upload PDF</h2>
       
       <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+        className={`mt-6 rounded-[28px] border border-dashed p-6 text-center transition ${
           dragActive 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-emerald-400 bg-emerald-400/10' 
+            : 'border-white/15 bg-white/5 hover:border-emerald-400/40 hover:bg-white/10'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -105,15 +107,15 @@ const PdfUploader = ({ onUploadSuccess, onError }) => {
         
         {pdfFile ? (
           <div>
-            <p className="text-green-600 font-medium">✓ {pdfFile.name}</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="font-medium text-emerald-300">✓ {pdfFile.name}</p>
+            <p className="mt-1 text-sm text-slate-400">
               {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
             </p>
           </div>
         ) : (
           <div>
-            <p className="text-gray-600">Click to select or drag and drop a PDF file</p>
-            <p className="text-sm text-gray-400 mt-1">Max size: 10MB</p>
+            <p className="text-slate-200">Click to select or drag and drop a PDF file</p>
+            <p className="mt-1 text-sm text-slate-400">Max size: 10MB</p>
           </div>
         )}
       </div>
@@ -121,7 +123,7 @@ const PdfUploader = ({ onUploadSuccess, onError }) => {
       <button
         onClick={handleUpload}
         disabled={!pdfFile || uploading}
-        className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        className="button-primary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-50"
       >
         {uploading ? "Uploading..." : "Upload PDF"}
       </button>
